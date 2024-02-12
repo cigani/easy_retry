@@ -1,0 +1,28 @@
+name: Push
+
+on:
+  push:
+    branches:
+      - '!main'
+jobs:
+  commitizen:
+    name: Check Push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # ensures that tags are fetched, seems to be needed for cz check
+
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+
+      - name: Install dependencies
+        run: |
+          pip install -U commitizen
+
+      - name: Validate Commit Message
+        run: |
+          cz check --rev-range "$(git rev-parse origin/main)".."$(git rev-parse HEAD)"

@@ -6,3 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+[features]
+async = ["futures", "tokio"]
+
+[dev-dependencies]
+tokio = { version = "1.36.0", features = ["full"] }
+
+
+[dependencies.futures]
+version = "0.3.30"
+optional = true
+
+[dependencies.tokio]
+version = "1.36.0"
+features = ["time"]
+optional = true

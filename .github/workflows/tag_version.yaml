@@ -1,0 +1,38 @@
+name: Tag version
+
+on:
+  push:
+    branches:
+      - 'main'
+jobs:
+  create-tag:
+    name: Create a new Git tag if needed
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get version from Cargo.toml
+        shell: bash
+        id: read_toml
+        run: >-
+          echo toml_version=$(grep -m 1 version Cargo.toml | tr -s ' ' | tr -d '"' | tr -d "'" | cut -d' ' -f3)
+          >> $GITHUB_OUTPUT
+
+      - name: 'Check: package version has corrosponding git tag'
+        id: tagged
+        shell: bash
+        run: >-
+          git show-ref --tags --verify --quiet -- "refs/tags/${{ steps.read_toml.outputs.toml_version }}"
+          && (echo "tagged=0" >> $GITHUB_OUTPUT) || (echo "tagged=1" >> $GITHUB_OUTPUT)
+
+      - name: Create tag if not present
+        if: steps.tagged.outputs.tagged == 1
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git tag ${{ steps.read_toml.outputs.toml_version }}
+          git push origin ${{ steps.read_toml.outputs.toml_version }} --force
