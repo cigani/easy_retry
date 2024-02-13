@@ -1,5 +1,4 @@
 [![Workflow Status](https://github.com/cigani/easy_retry/workflows/main/badge.svg)](https://github.com/cigani/easy_retry/actions?query=workflow%3A%22main%22)
-[![Coverage Status](https://codecov.io/gh/cigani/easy_retry/branch/main/graph/badge.svg)](https://codecov.io/gh/cigani/easy_retry)
 
 # easy_retry
 
