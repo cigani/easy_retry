@@ -40,5 +40,5 @@ unused_async = "allow"
 no_effect_underscore_binding = "allow"
 
 [badges]
-github = { repository = "cigani/easy_retry" }
-codecov = { repository = "cigani/easy_retry", branch = "main", service = "github" }
+github = { repository = "cigani/easy_retry", workflow = "main" }
+

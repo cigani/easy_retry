@@ -88,3 +88,43 @@ jobs:
           args: --all-features --no-deps
         env:
           RUSTDOCFLAGS: --cfg docsrs
+  test:
+    runs-on: ${{ matrix.os }}
+    name: test / ${{ matrix.os }} / ${{ matrix.toolchain }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ${{ matrix.toolchain }}
+        uses: actions-rs/toolchain@v1
+        with:
+          # Works only for custom toolchains as stable will install default components
+          # Limit the scope of rustup installation: https://blog.rust-lang.org/2019/10/15/Rustup-1.20.0.html#profiles
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Generate lock file
+        # GitHub actions magic to check if the lock file does not exist
+        if: hashFiles('Cargo.lock') == ''
+        uses: actions-rs/cargo@v1
+        with:
+          command: generate-lockfile
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --locked --all-features --all-targets
+
+      # https://github.com/rust-lang/cargo/issues/6669
+      - name: Test doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --locked --all-features --doc
