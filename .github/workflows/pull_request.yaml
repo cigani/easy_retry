@@ -1,0 +1,30 @@
+name: Pull Request
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+    branches: [main]
+jobs:
+  commitizen:
+    name: Check Pull Request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # ensures that tags are fetched, seems to be needed for cz check
+
+      - name: Setup python
+        uses: actions/setup-python@v4
+
+        with:
+          python-version: 3.x
+          ref: "${{ github.ref }}"
+
+      - name: Install dependencies
+        run: |
+          pip install -U commitizen
+
+      - name: Validate Commit Message
+        run: |
+          cz check --rev-range "$(git rev-parse origin/$GITHUB_BASE_REF)".."$(git rev-parse $GITHUB_SHA)"

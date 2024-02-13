@@ -1,0 +1,38 @@
+name: Warn about new version
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+    branches: [main]
+jobs:
+  check-new-tag:
+    name: Check if a new tag will be created
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get version from Cargo.toml
+        shell: bash
+        id: read_toml
+        run: >-
+          echo toml_version=$(grep -m 1 version Cargo.toml | tr -s ' ' | tr -d '"' | tr -d "'" | cut -d' ' -f3)
+          >> $GITHUB_OUTPUT
+
+      - name: 'Check: package version has corrosponding git tag'
+        id: tagged
+        shell: bash
+        run: >-
+          git show-ref --tags --verify --quiet -- "refs/tags/${{ steps.read_toml.outputs.toml_version }}"
+          && (echo "tagged=0" >> $GITHUB_OUTPUT) || (echo "tagged=1" >> $GITHUB_OUTPUT)
+
+      - name: Warn about new tag if needed
+        if: steps.tagged.outputs.tagged == 1
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: >-
+            Beware! The version was updated, meaning a tag "${{ steps.read_toml.outputs.toml_version }}"
+            will be created once the PR merged.'

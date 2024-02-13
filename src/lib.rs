@@ -1,6 +1,6 @@
 //! # Easy Retry
 //!
-//! `easy_retry` is AsyncReturn Rust library that provides utilities for retrying operations with different strategies.
+//! `easy_retry` is a Rust library that provides utilities for retrying operations with different strategies.
 //!
 //! This library provides several retry strategies, including linear, exponential, and their asynchronous versions. You can choose the strategy that best fits your needs.
 //!
@@ -26,7 +26,7 @@
 //!     Err(std::io::Error::new(std::io::ErrorKind::Other, "generic error"))
 //! }
 //!
-//! // Retry the operation with AsyncReturn linear strategy (1 second delay, 2 retries)
+//! // Retry the operation with a linear strategy (1 second delay, 2 retries)
 //! let retry_strategy = EasyRetry::new_linear(1, 2);
 //! let result = retry_strategy.run(|| my_sync_fn("Hi"));
 //! assert!(result.is_err());
@@ -66,7 +66,7 @@
 //! extern crate easy_retry;
 //! ```
 //!
-//! Now, you can use the `EasyRetry` enum to create AsyncReturn retry strategy:
+//! Now, you can use the `EasyRetry` enum to create a retry strategy:
 //!
 //! ```rust
 //! use easy_retry::EasyRetry;
@@ -78,7 +78,7 @@
 //!
 //! This project is licensed under the MIT License.
 
-#[deny(missing_docs)]
+#![deny(missing_docs)]
 use std::fmt::Debug;
 #[cfg(feature = "async")]
 use std::future::Future;
@@ -86,7 +86,7 @@ use std::future::Future;
 
 /// `EasyRetry` is an enum representing different kinds of retry strategies.
 pub enum EasyRetry {
-    /// Represents AsyncReturn linear retry strategy.
+    /// Represents a linear retry strategy.
     Linear {
         #[doc(hidden)]
         /// The delay between retries in seconds.
@@ -210,6 +210,10 @@ impl EasyRetry {
     /// This function takes a function `f` that implements the `SyncReturn` trait and runs it with a retry strategy. The `SyncReturn` trait is implemented for `FnMut` closures, which can mutate their captured variables and can be called multiple times.
     ///
     /// The function `f` should return a `Result` with the operation's result or error. The types of the result and error are determined by the `SyncReturn` trait's associated types `Item` and `Error`.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the operation fails after all retries.
     pub fn run<T>(&self, f: T) -> Result<<T as SyncReturn>::Item, <T as SyncReturn>::Error>
     where
         T: SyncReturn,
@@ -222,6 +226,9 @@ impl EasyRetry {
     /// This function takes a function `f` that implements the `AsyncReturn` trait and runs it with a retry strategy. The `AsyncReturn` trait is implemented for `FnMut` closures, which can mutate their captured variables and can be called multiple times. This function is only available when the `async` feature is enabled.
     ///
     /// The function `f` should return a `Result` with the operation's result or error. The types of the result and error are determined by the `SyncReturn` trait's associated types `Item` and `Error`.
+    /// # Errors
+    ///
+    /// Will return an error if the operation fails after all retries.
     #[cfg(feature = "async")]
     pub async fn run_async<'a, T>(
         &'a self,
@@ -260,7 +267,7 @@ impl EasyRetry {
     }
 
     fn exponential(x: u64) -> u64 {
-        2u64.pow(x as u32)
+        2u64.pow(x.try_into().unwrap_or_default())
     }
 
     fn retry_fn(&self) -> fn(u64) -> u64 {
@@ -338,14 +345,55 @@ impl Retry {
         do_retry(move || f.run(), t)
     }
 }
-
-#[doc(hidden)]
+/// The `AsyncReturn` trait is used for operations that need to return a value asynchronously.
+///
+/// This trait provides a single method, `run`, which takes no arguments and returns a `Future` that resolves to a `Result` with the operation's result or error. Both the result and error types must implement the `Debug` trait.
+///
+/// This trait is only available when the `async` feature is enabled.
+///
+/// # Associated Types
+///
+/// * `Item`: The type of the value returned by the `run` method. This type must implement the `Debug` trait.
+/// * `Error`: The type of the error returned by the `run` method. This type must also implement the `Debug` trait.
+/// * `Future`: The type of the `Future` returned by the `run` method. This `Future` should resolve to a `Result<Item, Error>`.
+///
+/// # Methods
+///
+/// * `run`: Performs the operation and returns a `Future` that resolves to the result.
+///
+/// # Examples
+///
+/// ```
+/// use easy_retry::AsyncReturn;
+/// use std::fmt::Debug;
+/// use futures::future::ready;
+///
+/// struct MyOperation;
+///
+/// impl AsyncReturn for MyOperation {
+///     type Item = i32;
+///     type Error = &'static str;
+///     type Future = futures::future::Ready<Result<Self::Item, Self::Error>>;
+///
+///     fn run(&mut self) -> Self::Future {
+///         // Perform the operation and return the result...
+///         ready(Ok(42))
+///     }
+/// }
+///
+/// let mut operation = MyOperation;
+/// let future = operation.run();
+/// ```
 #[cfg(feature = "async")]
 pub trait AsyncReturn {
+    /// The type of the value returned by the `run` method.
     type Item: Debug;
+    /// The type of the error returned by the `run` method.
     type Error: Debug;
+    /// The type of the `Future` returned by the `run` method.
     type Future: Future<Output = Result<Self::Item, Self::Error>>;
 
+    /// Performs the operation and returns a `Future` that resolves to the result.
     fn run(&mut self) -> Self::Future;
 }
 
@@ -359,11 +407,51 @@ impl<I: Debug, E: Debug, T: Future<Output = Result<I, E>>, F: FnMut() -> T> Asyn
     }
 }
 
-#[doc(hidden)]
+/// The `SyncReturn` trait is used for operations that need to return a value synchronously.
+///
+/// This trait provides a single method, `run`, which takes no arguments and returns a `Result` with the operation's result or error. Both the result and error types must implement the `Debug` trait.
+///
+/// # Type Parameters
+///
+/// * `Item`: The type of the value returned by the `run` method. This type must implement the `Debug` trait.
+/// * `Error`: The type of the error returned by the `run` method. This type must also implement the `Debug` trait.
+///
+/// # Methods
+///
+/// * `run`: Performs the operation and returns the result.
+///
+/// # Errors
+///
+/// If the operation fails, this method returns `Err` containing the error. The type of the error is defined by the `Error` associated type.
+///
+/// # Examples
+///
+/// ```
+/// use easy_retry::SyncReturn;
+/// use std::fmt::Debug;
+///
+/// struct MyOperation;
+///
+/// impl SyncReturn for MyOperation {
+///     type Item = i32;
+///     type Error = &'static str;
+///
+///     fn run(&mut self) -> Result<Self::Item, Self::Error> {
+///         // Perform the operation and return the result...
+///         Ok(42)
+///     }
+/// }
+///
+/// let mut operation = MyOperation;
+/// assert_eq!(operation.run(), Ok(42));
+/// ```
 pub trait SyncReturn {
+    /// The type of the value returned by the `run` method.
     type Item: Debug;
+    /// The type of the error returned by the `run` method.
     type Error: Debug;
 
+    /// Performs the operation and returns the result.
     fn run(&mut self) -> Result<Self::Item, Self::Error>;
 }
 
@@ -401,7 +489,7 @@ mod test {
     }
 
     #[cfg(feature = "async")]
-    async fn to_retry_async(_n: usize) -> Result<(), std::io::Error> {
+    async fn to_retry_async(n: usize) -> Result<(), std::io::Error> {
         Err(std::io::Error::new(
             std::io::ErrorKind::Other,
             "generic error",
@@ -413,11 +501,7 @@ mod test {
         let retries = 2;
         let delay = 1;
         let instant = std::time::Instant::now();
-        let s = EasyRetry::Linear {
-            retries: retries,
-            delay: delay,
-        }
-        .run(|| to_retry(1));
+        let s = EasyRetry::Linear { retries, delay }.run(|| to_retry(1));
         assert!(s.is_err());
         let elapsed = instant.elapsed();
         assert!(elapsed.as_secs() >= retries * delay);
@@ -428,11 +512,7 @@ mod test {
         let retries = 2;
         let delay = 1;
         let instant = std::time::Instant::now();
-        let s = EasyRetry::Exponential {
-            retries: retries,
-            delay: delay,
-        }
-        .run(|| to_retry(1));
+        let s = EasyRetry::Exponential { retries, delay }.run(|| to_retry(1));
         assert!(s.is_err());
         let elapsed = instant.elapsed();
         assert!(elapsed.as_secs() >= retries * delay);
@@ -445,11 +525,7 @@ mod test {
         let not_copy = NotCopy { _n: 1 };
         let instant = std::time::Instant::now();
 
-        let s = EasyRetry::Linear {
-            retries: retries,
-            delay: delay,
-        }
-        .run(|| to_retry_not_copy(&not_copy));
+        let s = EasyRetry::Linear { retries, delay }.run(|| to_retry_not_copy(&not_copy));
         assert!(s.is_err());
         let elapsed = instant.elapsed();
         assert!(elapsed.as_secs() >= retries * delay);
@@ -461,12 +537,9 @@ mod test {
         let retries = 2;
         let delay = 1;
         let instant = std::time::Instant::now();
-        let s = EasyRetry::LinearAsync {
-            retries: retries,
-            delay: delay,
-        }
-        .run_async(|| to_retry_async(1))
-        .await;
+        let s = EasyRetry::LinearAsync { retries, delay }
+            .run_async(|| to_retry_async(1))
+            .await;
         assert!(s.is_err());
         let elapsed = instant.elapsed();
         assert!(elapsed.as_secs() >= retries * delay);
@@ -478,12 +551,9 @@ mod test {
         let retries = 2;
         let delay = 1;
         let instant = std::time::Instant::now();
-        let s = EasyRetry::ExponentialAsync {
-            retries: retries,
-            delay: delay,
-        }
-        .run_async(|| to_retry_async(1))
-        .await;
+        let s = EasyRetry::ExponentialAsync { retries, delay }
+            .run_async(|| to_retry_async(1))
+            .await;
         assert!(s.is_err());
         let elapsed = instant.elapsed();
         assert!(elapsed.as_secs() >= retries * delay);

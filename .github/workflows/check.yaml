@@ -1,0 +1,90 @@
+name: Check
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  # Cancel old actions upon push
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+jobs:
+  # Checks formatting on the latest stable toolchain
+  fmt:
+    runs-on: ubuntu-latest
+    name: stable / fmt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Format check
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --check
+  # Checks clippy on the latest stable toolchain and beta
+  clippy:
+    runs-on: ubuntu-latest
+    name: ${{ matrix.toolchain }} / clippy
+    permissions:
+      contents: read
+      checks: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # Run on beta to be aware that future release will break clippy
+        toolchain:
+          - stable
+          - beta
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ${{ matrix.toolchain }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          # Effective only for unstable toolchains as the stable ones guarantee to have most of the required components
+          # https://blog.rust-lang.org/2019/10/15/Rustup-1.20.0.html#installing-the-latest-compatible-nightly
+          components: clippy
+
+      - name: Clippy check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Run all features on the current crate only, without dependencies
+          args: --all-features --release --no-deps --tests
+        # Clippy's specifics only
+  # Run docstring checks: doc checks are not run by default (e.g., doc links)
+  doc:
+    runs-on: ubuntu-latest
+    name: nightly / doc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Running on nightly allows for certain configurations
+      # Also `docs.rs` is built based on nightly
+      - name: Install nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          # Works only for custom toolchains as stable will install default components
+          # Limit the scope of rustup installation: https://blog.rust-lang.org/2019/10/15/Rustup-1.20.0.html#profiles
+          profile: minimal
+          toolchain: nightly
+
+      - name: Doc check
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          # Run all features on the current crate only, without dependencies
+          args: --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: --cfg docsrs
