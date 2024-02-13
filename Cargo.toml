@@ -2,8 +2,15 @@
 name = "easy_retry"
 version = "0.1.0"
 edition = "2021"
-
+authors = ["Michael Jaquier <xyz@devnull.org>"]
+homepage = "https://github.com/cigani/easy_retry"
+repository = "https://github.com/cigani/easy_retry"
+documentation = "https://docs.rs/easy_retry"
+readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+keywords = ["async", "retry", "networking"]
+description = "A simple and easy to use retry library for Rust"
+license = "MIT"
 
 [dependencies]
 
@@ -22,3 +29,16 @@ optional = true
 version = "1.36.0"
 features = ["time"]
 optional = true
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+correctness = "deny"
+missing_errors_doc = "allow"
+unused_async = "allow"
+no_effect_underscore_binding = "allow"
+
+[badges]
+github = { repository = "cigani/easy_retry" }
+codecov = { repository = "cigani/easy_retry", branch = "main", service = "github" }

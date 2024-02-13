@@ -62,16 +62,6 @@ jobs:
           # Run all features on the current crate only, without dependencies
           args: --all-features --release --no-deps --tests
         # Clippy's specifics only
-        env:
-          # Only `>` leaves a `\n` at the end
-          RUSTFLAGS: >-
-            -D clippy::uninlined-format-args
-            -D warnings
-            -A dead-code
-            -A deprecated
-            -A clippy::missing_docs_in_private_items
-            -A unknown-lints
-            -W clippy::missing_docs_in_private_items
   # Run docstring checks: doc checks are not run by default (e.g., doc links)
   doc:
     runs-on: ubuntu-latest
